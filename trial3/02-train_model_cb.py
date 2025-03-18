@@ -40,17 +40,17 @@ else:
     # Define Optuna objective function
     def objective(trial):
         param = {
-            "iterations": trial.suggest_int("iterations", 100, 1000),
-            "learning_rate": trial.suggest_loguniform("learning_rate", 0.01, 0.2),
+            "loss_function": "Logloss",
+            "eval_metric": "Accuracy",
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
             "depth": trial.suggest_int("depth", 3, 12),
-            "l2_leaf_reg": trial.suggest_loguniform("l2_leaf_reg", 1e-3, 10),
-            "bagging_temperature": trial.suggest_uniform(
-                "bagging_temperature", 0.0, 1.0
-            ),
+            "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1e-5, 10.0, log=True),
+            "bagging_temperature": trial.suggest_float("bagging_temperature", 0.0, 1.0),
+            "random_strength": trial.suggest_float("random_strength", 0.0, 2.0),
             "border_count": trial.suggest_int("border_count", 32, 255),
-            "random_strength": trial.suggest_loguniform("random_strength", 1e-3, 10),
             "verbose": 0,
             "random_seed": 42,
+            "allow_writing_files": False,
         }
 
         model = cb.CatBoostClassifier(**param)
@@ -65,11 +65,11 @@ else:
         preds = model.predict(X_valid)
         accuracy = accuracy_score(y_valid, preds)
 
-        return accuracy
+        return accuracy  # Maximizing accuracy
 
     # Run Optuna optimization
     study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=50)
+    study.optimize(objective, n_trials=50)  # Adjust as needed
 
     # Save best parameters
     best_params = study.best_params
@@ -78,13 +78,10 @@ else:
     print("Best hyperparameters saved!")
 
 # Train final model with best parameters
-final_model = cb.CatBoostClassifier(**best_params, random_seed=42)
+best_params.update({"loss_function": "Logloss", "eval_metric": "Accuracy"})
+final_model = cb.CatBoostClassifier(**best_params)
 final_model.fit(
-    X_train,
-    y_train,
-    eval_set=(X_valid, y_valid),
-    early_stopping_rounds=50,
-    verbose=True,
+    X_train, y_train, eval_set=(X_valid, y_valid), early_stopping_rounds=50, verbose=50
 )
 
 # Save final model

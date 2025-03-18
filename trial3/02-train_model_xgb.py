@@ -42,35 +42,40 @@ else:
         param = {
             "objective": "binary:logistic",
             "eval_metric": "logloss",
-            "learning_rate": trial.suggest_loguniform("learning_rate", 0.01, 0.2),
+            "booster": "gbtree",
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
             "max_depth": trial.suggest_int("max_depth", 3, 15),
             "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
-            "subsample": trial.suggest_uniform("subsample", 0.6, 1.0),
-            "colsample_bytree": trial.suggest_uniform("colsample_bytree", 0.6, 1.0),
-            "lambda": trial.suggest_loguniform("lambda", 1e-3, 10),
-            "alpha": trial.suggest_loguniform("alpha", 1e-3, 10),
-            "n_estimators": trial.suggest_int("n_estimators", 100, 1000),
-            "random_state": 42,
-            "use_label_encoder": False,
+            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+            "gamma": trial.suggest_float("gamma", 0, 5),
+            "lambda": trial.suggest_float("lambda", 1e-5, 10.0, log=True),
+            "alpha": trial.suggest_float("alpha", 1e-5, 10.0, log=True),
+            "n_jobs": -1,
+            "seed": 42,
         }
 
-        model = xgb.XGBClassifier(**param)
-        model.fit(
-            X_train,
-            y_train,
-            eval_set=[(X_valid, y_valid)],
+        train_dataset = xgb.DMatrix(X_train, label=y_train)
+        valid_dataset = xgb.DMatrix(X_valid, label=y_valid)
+
+        model = xgb.train(
+            param,
+            train_dataset,
+            evals=[(valid_dataset, "valid")],
+            num_boost_round=1000,
             early_stopping_rounds=50,
-            verbose=False,
+            verbose_eval=False,
         )
 
-        preds = model.predict(X_valid)
-        accuracy = accuracy_score(y_valid, preds)
+        preds = model.predict(valid_dataset, iteration_range=(0, model.best_iteration))
+        pred_labels = (preds > 0.5).astype(int)
+        accuracy = accuracy_score(y_valid, pred_labels)
 
-        return accuracy
+        return accuracy  # Maximizing accuracy
 
     # Run Optuna optimization
     study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=50)
+    study.optimize(objective, n_trials=50)  # Adjust as needed
 
     # Save best parameters
     best_params = study.best_params
@@ -79,15 +84,16 @@ else:
     print("Best hyperparameters saved!")
 
 # Train final model with best parameters
-final_model = xgb.XGBClassifier(**best_params, use_label_encoder=False, random_state=42)
-final_model.fit(
-    X_train,
-    y_train,
-    eval_set=[(X_valid, y_valid)],
+best_params.update({"objective": "binary:logistic", "eval_metric": "logloss"})
+final_model = xgb.train(
+    best_params,
+    xgb.DMatrix(X_train, label=y_train),
+    num_boost_round=1000,
+    evals=[(xgb.DMatrix(X_valid, label=y_valid), "valid")],
     early_stopping_rounds=50,
-    verbose=True,
+    verbose_eval=50,
 )
 
 # Save final model
 final_model.save_model("best_xgb_model.json")
-print("Final XGBoost model saved to best_xgb_model.json")
+print("Final model saved to best_xgb_model.json")

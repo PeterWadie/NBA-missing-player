@@ -5,7 +5,6 @@ import pandas as pd
 import lightgbm as lgb
 import xgboost as xgb
 import catboost as cb
-from sklearn.metrics import accuracy_score
 
 # Load encoders & team rosters
 with open("player_encoder.pkl", "rb") as f:
@@ -20,7 +19,7 @@ lgb_model = lgb.Booster(model_file="best_lgb_model.txt")
 xgb_model = xgb.XGBClassifier()
 xgb_model.load_model("best_xgb_model.json")
 catboost_model = cb.CatBoostClassifier()
-catboost_model.load_model("best_catboost_model.cbm")
+catboost_model.load_model("best_cb_model.cbm")
 
 # Load original dataset for test scenario
 df = pd.read_csv("../input-dataset/matchups-2007.csv")
@@ -196,7 +195,6 @@ def evaluate_predictions(pred_probs, model_name):
         total += 1
 
     accuracy = correct / total if total > 0 else 0
-    print(f"Accuracy for {model_name}: {accuracy*100:.2f}%")
     return accuracy
 
 
