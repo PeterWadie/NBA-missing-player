@@ -97,6 +97,7 @@ for idx, row in df_win.iterrows():
 # Convert to DataFrame
 df_binary = pd.DataFrame(binary_rows)
 df_binary.to_csv("binary_data.csv", index=False)
+# Convert sets to lists before saving to JSON
 with open("team_rosters.json", "w") as f:
-    json.dump(team_rosters, f)
+    json.dump({team: list(players) for team, players in team_rosters.items()}, f)
 print("Step 0 complete: Built binary_data.csv with positive/negative samples.")
