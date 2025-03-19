@@ -8,7 +8,11 @@ with open("player_encoder.pkl", "rb") as f:
     player_encoder = pickle.load(f)
 
 # Define feature columns: four home players, five away players, plus the extra features
-feature_cols = [f"home_{i}" for i in range(4)] + [f"away_{i}" for i in range(5)] + ["home_team", "away_team", "starting_min"]
+feature_cols = (
+    [f"home_{i}" for i in range(4)]
+    + [f"away_{i}" for i in range(5)]
+    + ["home_team", "away_team", "starting_min"]
+)
 
 # Load encoded data
 df_encoded = pd.read_csv("01-encoded_data.csv")
@@ -16,7 +20,9 @@ X = df_encoded[feature_cols]
 y = df_encoded["removed_player"]
 
 # Split the data into training and validation sets (80/20 split)
-X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
 
 # Prepare LightGBM datasets
 train_dataset = lgb.Dataset(X_train, label=y_train)
@@ -29,11 +35,15 @@ params = {
     "num_class": player_encoder.classes_.size,
     "metric": "multi_logloss",
     "learning_rate": 0.1,
-    "num_leaves": 31,
-    "max_depth": 10,
     "verbose": -1,
     "n_jobs": -1,
     "seed": 42,
+    "num_leaves": 108,
+    "max_depth": 13,
+    "feature_fraction": 0.7371810218859858,
+    "bagging_fraction": 0.988290243906987,
+    "bagging_freq": 1,
+    "min_child_samples": 24,
 }
 
 # Train the model with early stopping
