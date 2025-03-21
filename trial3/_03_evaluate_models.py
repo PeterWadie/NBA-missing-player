@@ -150,8 +150,8 @@ def evaluate_models(year):
 
     # Predict probabilities with the models
     lgb_preds = lgb_model.predict(X_test)
-    xgb_preds = xgb_model.predict(X_test)
-    catboost_preds = catboost_model.predict(X_test)
+    xgb_preds = xgb_model.predict_proba(X_test)
+    catboost_preds = catboost_model.predict_proba(X_test)
 
     # Convert predictions to probabilities if necessary
     # (LightGBM binary -> 2 columns usually: [prob_of_class0, prob_of_class1])
