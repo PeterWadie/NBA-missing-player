@@ -7,6 +7,7 @@ import os
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
+
 def train_model_lgb(year):
     output_dir = f"./{year}"
     # Load data
@@ -16,8 +17,21 @@ def train_model_lgb(year):
     feature_cols = (
         [f"home_{i}" for i in range(4)]
         + [f"away_{i}" for i in range(5)]
-        + ["home_team", "away_team", "starting_min", "candidate_player"]
+        + [
+            "home_team",
+            "away_team",
+            "starting_min",
+            "candidate_player",
+            "candidate_overall_win_rate",
+            "candidate_home_win_rate",
+            "candidate_away_win_rate",
+            "candidate_avg_start_min",
+            "candidate_avg_synergy_with_present",
+            "candidate_avg_head2head",
+            "present_4_avg_synergy",
+        ]
     )
+
     label_col = "label"
 
     X = df_encoded[feature_cols]
@@ -42,7 +56,9 @@ def train_model_lgb(year):
                 "objective": "binary",
                 "metric": "binary_logloss",
                 "boosting_type": "gbdt",
-                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
+                "learning_rate": trial.suggest_float(
+                    "learning_rate", 0.01, 0.2, log=True
+                ),
                 "num_leaves": trial.suggest_int("num_leaves", 20, 150),
                 "max_depth": trial.suggest_int("max_depth", 3, 15),
                 "feature_fraction": trial.suggest_float("feature_fraction", 0.6, 1.0),
@@ -97,4 +113,4 @@ def train_model_lgb(year):
 
     # Save final model
     final_model.save_model(f"{output_dir}/best_lgb_model.txt")
-    print(f"Step 2 complete for {year}: final model saved to best_lgb_model.txt")
+    print(f"Step 3 complete for {year}: final model saved to best_lgb_model.txt")

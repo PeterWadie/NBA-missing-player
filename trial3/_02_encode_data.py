@@ -44,4 +44,4 @@ def encode_data(year):
         pickle.dump(team_encoder, f)
 
     df_binary.to_csv(f"{output_dir}/encoded_binary_data.csv", index=False)
-    print(f"Step 1 complete for {year}: Encoded data saved to encoded_binary_data.csv")
+    print(f"Step 2 complete for {year}: Encoded data saved to encoded_binary_data.csv")

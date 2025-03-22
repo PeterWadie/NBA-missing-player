@@ -16,7 +16,19 @@ def train_model_xgb(year):
     feature_cols = (
         [f"home_{i}" for i in range(4)]
         + [f"away_{i}" for i in range(5)]
-        + ["home_team", "away_team", "starting_min", "candidate_player"]
+        + [
+            "home_team",
+            "away_team",
+            "starting_min",
+            "candidate_player",
+            "candidate_overall_win_rate",
+            "candidate_home_win_rate",
+            "candidate_away_win_rate",
+            "candidate_avg_start_min",
+            "candidate_avg_synergy_with_present",
+            "candidate_avg_head2head",
+            "present_4_avg_synergy",
+        ]
     )
     label_col = "label"
 
@@ -94,4 +106,4 @@ def train_model_xgb(year):
 
     # Save final model
     final_model.save_model(f"{output_dir}/best_xgb_model.json")
-    print(f"Step 2 complete for {year}: final model saved to best_xgb_model.json")
+    print(f"Step 3 complete for {year}: final model saved to best_xgb_model.json")

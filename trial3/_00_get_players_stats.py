@@ -251,3 +251,5 @@ def get_players_stats(year):
     # 6. Save to JSON
     with open(f"{output_dir}/players_stats.json", "w") as f:
         json.dump(player_stats, f, indent=2)
+
+    print(f"Step 0 complete for {year}: Built players_stats with players' stats.")
