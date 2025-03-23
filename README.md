@@ -22,7 +22,7 @@ NBA-missing-player/
 │   └── stats_utils.py             # Statistical profiling of players
 ├── input-dataset/                 # Historical matchup data (matchups-YYYY.csv)
 ├── test-dataset/                  # Test segments and true labels
-├── model-best-params/            # Best hyperparameters for XGBoost per year
+├── data/                          # Best hyperparameters for XGBoost per year
 ├── evaluation_results.json        # Model evaluation results
 ```
 
