@@ -1,4 +1,6 @@
 # utils/stats_utils.py
+import os
+import json
 from itertools import combinations
 
 
@@ -208,3 +210,12 @@ def build_team_rosters(df) -> dict:
 
     # Convert sets to lists for serialization
     return {team: list(players) for team, players in team_rosters.items()}
+
+
+def save_player_stats(stats: dict, output_dir: str) -> None:
+    """
+    Saves the computed player statistics as a JSON file.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    with open(os.path.join(output_dir, "players_stats.json"), "w") as f:
+        json.dump(stats, f, indent=2)

@@ -1,0 +1,68 @@
+{
+  "2007": {
+    "accuracy": 0.91,
+    "correct": 91,
+    "incorrect": 9,
+    "total": 100
+  },
+  "2008": {
+    "accuracy": 0.9,
+    "correct": 90,
+    "incorrect": 10,
+    "total": 100
+  },
+  "2009": {
+    "accuracy": 0.94,
+    "correct": 94,
+    "incorrect": 6,
+    "total": 100
+  },
+  "2010": {
+    "accuracy": 0.97,
+    "correct": 97,
+    "incorrect": 3,
+    "total": 100
+  },
+  "2011": {
+    "accuracy": 0.96,
+    "correct": 96,
+    "incorrect": 4,
+    "total": 100
+  },
+  "2012": {
+    "accuracy": 0.95,
+    "correct": 95,
+    "incorrect": 5,
+    "total": 100
+  },
+  "2013": {
+    "accuracy": 0.98,
+    "correct": 98,
+    "incorrect": 2,
+    "total": 100
+  },
+  "2014": {
+    "accuracy": 0.98,
+    "correct": 98,
+    "incorrect": 2,
+    "total": 100
+  },
+  "2015": {
+    "accuracy": 0.94,
+    "correct": 94,
+    "incorrect": 6,
+    "total": 100
+  },
+  "2016": {
+    "accuracy": 0.07,
+    "correct": 7,
+    "incorrect": 93,
+    "total": 100
+  },
+  "cumulative": {
+    "accuracy": 0.86,
+    "correct": 860,
+    "incorrect": 140,
+    "total": 1000
+  }
+}

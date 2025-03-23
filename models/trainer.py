@@ -1,21 +1,14 @@
 # models/trainer.py
 import os
-import json
-import optuna
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-
-import catboost as cb
-import lightgbm as lgb
+from utils.data_utils import load_dataframe, load_json
 import xgboost as xgb
 
 
-def load_encoded_data(output_dir: str):
+def load_encoded_data(output_dir: str) -> tuple:
     """
     Loads the encoded binary data and returns features and target.
     """
-    df_encoded = pd.read_csv(os.path.join(output_dir, "encoded_binary_data.csv"))
+    df_encoded = load_dataframe(output_dir, "encoded_binary_data")
     feature_cols = (
         [f"home_{i}" for i in range(4)]
         + [f"away_{i}" for i in range(5)]
@@ -39,181 +32,24 @@ def load_encoded_data(output_dir: str):
     return X, y
 
 
-def train_val_split(X, y, test_size=0.2, random_state=42):
-    return train_test_split(X, y, test_size=test_size, random_state=random_state)
-
-
-def get_best_params(best_params_file, objective_func, n_trials=50):
-    if os.path.exists(best_params_file):
-        with open(best_params_file, "r") as f:
-            best_params = json.load(f)
-    else:
-        study = optuna.create_study(direction="maximize")
-        study.optimize(objective_func, n_trials=n_trials)
-        best_params = study.best_params
-        with open(best_params_file, "w") as f:
-            json.dump(best_params, f)
-    return best_params
-
-
-def train_catboost(output_dir: str):
+def train_xgboost(output_dir: str) -> None:
+    """
+    Trains an XGBoost model using the best parameters.
+    """
     X, y = load_encoded_data(output_dir)
-    X_train, X_valid, y_train, y_valid = train_val_split(X, y)
-    best_params_file = os.path.join(output_dir, "best_cb_params.json")
-
-    def objective(trial):
-        param = {
-            "loss_function": "Logloss",
-            "eval_metric": "Accuracy",
-            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
-            "depth": trial.suggest_int("depth", 3, 12),
-            "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1e-5, 10.0, log=True),
-            "bagging_temperature": trial.suggest_float("bagging_temperature", 0.0, 1.0),
-            "random_strength": trial.suggest_float("random_strength", 0.0, 2.0),
-            "border_count": trial.suggest_int("border_count", 32, 255),
-            "verbose": 0,
-            "random_seed": 42,
-            "allow_writing_files": False,
-        }
-        model = cb.CatBoostClassifier(**param)
-        model.fit(
-            X_train,
-            y_train,
-            eval_set=(X_valid, y_valid),
-            early_stopping_rounds=50,
-            verbose=False,
-        )
-        preds = model.predict(X_valid)
-        return accuracy_score(y_valid, preds)
-
-    best_params = get_best_params(best_params_file, objective, n_trials=50)
-    best_params.update({"loss_function": "Logloss", "eval_metric": "Accuracy"})
-
-    final_model = cb.CatBoostClassifier(**best_params)
-    final_model.fit(
-        X_train,
-        y_train,
-        eval_set=(X_valid, y_valid),
-        early_stopping_rounds=50,
-        verbose=50,
-    )
-    final_model.save_model(os.path.join(output_dir, "best_cb_model.cbm"))
-    print(
-        f"CatBoost model trained and saved at {os.path.join(output_dir, 'best_cb_model.cbm')}"
-    )
-
-
-def train_lightgbm(output_dir: str):
-    X, y = load_encoded_data(output_dir)
-    X_train, X_valid, y_train, y_valid = train_val_split(X, y)
-    best_params_file = os.path.join(output_dir, "best_lgb_params.json")
-
-    def objective(trial):
-        param = {
-            "objective": "binary",
-            "metric": "binary_logloss",
-            "boosting_type": "gbdt",
-            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
-            "num_leaves": trial.suggest_int("num_leaves", 20, 150),
-            "max_depth": trial.suggest_int("max_depth", 3, 15),
-            "feature_fraction": trial.suggest_float("feature_fraction", 0.6, 1.0),
-            "bagging_fraction": trial.suggest_float("bagging_fraction", 0.6, 1.0),
-            "bagging_freq": trial.suggest_int("bagging_freq", 1, 7),
-            "min_child_samples": trial.suggest_int("min_child_samples", 5, 100),
-            "verbose": -1,
-            "seed": 42,
-            "n_jobs": -1,
-        }
-        train_dataset = lgb.Dataset(X_train, label=y_train)
-        valid_dataset = lgb.Dataset(X_valid, label=y_valid, reference=train_dataset)
-        model = lgb.train(
-            param,
-            train_dataset,
-            valid_sets=[valid_dataset],
-            valid_names=["valid"],
-            num_boost_round=1000,
-            callbacks=[lgb.early_stopping(stopping_rounds=50, verbose=False)],
-        )
-        preds = model.predict(X_valid, num_iteration=model.best_iteration)
-        pred_labels = (preds > 0.5).astype(int)
-        return accuracy_score(y_valid, pred_labels)
-
-    best_params = get_best_params(best_params_file, objective, n_trials=50)
-    best_params.update({"objective": "binary", "metric": "binary_logloss"})
-
-    final_model = lgb.train(
-        best_params,
-        lgb.Dataset(X_train, label=y_train),
-        num_boost_round=1000,
-        valid_sets=[lgb.Dataset(X_valid, label=y_valid)],
-        valid_names=["valid"],
-        callbacks=[
-            lgb.early_stopping(stopping_rounds=50, verbose=True),
-            lgb.log_evaluation(period=50),
-        ],
-    )
-    final_model.save_model(os.path.join(output_dir, "best_lgb_model.txt"))
-    print(
-        f"LightGBM model trained and saved at {os.path.join(output_dir, 'best_lgb_model.txt')}"
-    )
-
-
-def train_xgboost(output_dir: str):
-    X, y = load_encoded_data(output_dir)
-    X_train, X_valid, y_train, y_valid = train_val_split(X, y)
-    best_params_file = os.path.join(output_dir, "best_xgb_params.json")
-
-    def objective(trial):
-        param = {
+    best_params = load_json(output_dir, "best_xgb_params")
+    best_params.update(
+        {
             "objective": "binary:logistic",
             "eval_metric": "logloss",
             "booster": "gbtree",
-            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
-            "max_depth": trial.suggest_int("max_depth", 3, 15),
-            "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
-            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
-            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-            "gamma": trial.suggest_float("gamma", 0, 5),
-            "lambda": trial.suggest_float("lambda", 1e-5, 10.0, log=True),
-            "alpha": trial.suggest_float("alpha", 1e-5, 10.0, log=True),
             "n_jobs": -1,
             "seed": 42,
         }
-        train_dataset = xgb.DMatrix(X_train, label=y_train)
-        valid_dataset = xgb.DMatrix(X_valid, label=y_valid)
-        model = xgb.train(
-            param,
-            train_dataset,
-            evals=[(valid_dataset, "valid")],
-            num_boost_round=1000,
-            early_stopping_rounds=50,
-            verbose_eval=False,
-        )
-        preds = model.predict(valid_dataset, iteration_range=(0, model.best_iteration))
-        pred_labels = (preds > 0.5).astype(int)
-        return accuracy_score(y_valid, pred_labels)
-
-    best_params = get_best_params(best_params_file, objective, n_trials=50)
-    best_params.update({"objective": "binary:logistic", "eval_metric": "logloss"})
-
+    )
     final_model = xgb.train(
         best_params,
-        xgb.DMatrix(X_train, label=y_train),
+        xgb.DMatrix(X, label=y),
         num_boost_round=1000,
-        evals=[(xgb.DMatrix(X_valid, label=y_valid), "valid")],
-        early_stopping_rounds=50,
-        verbose_eval=50,
     )
     final_model.save_model(os.path.join(output_dir, "best_xgb_model.json"))
-    print(
-        f"XGBoost model trained and saved at {os.path.join(output_dir, 'best_xgb_model.json')}"
-    )
-
-
-def train_all_models(output_dir: str):
-    """
-    Trains LightGBM, XGBoost, and CatBoost models sequentially.
-    """
-    train_lightgbm(output_dir)
-    train_xgboost(output_dir)
-    train_catboost(output_dir)

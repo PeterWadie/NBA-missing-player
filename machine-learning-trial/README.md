@@ -13,12 +13,10 @@ nba-lineup-optimization/
 ├── config.py                      # Configuration constants
 ├── pipeline.py                    # Main pipeline execution script
 ├── models/
-│   ├── __init__.py
 │   ├── encoder.py                 # Data encoding and feature expansion
 │   ├── evaluator.py               # Model evaluation logic
 │   └── trainer.py                 # Training ML models
 └── utils/
-    ├── __init__.py
     ├── data_utils.py              # Data loading and saving utilities
     ├── feature_utils.py           # Candidate feature generation
     └── stats_utils.py             # Player statistics computation
@@ -95,7 +93,7 @@ Hyperparameter tuning is automated using Optuna.
 After execution, evaluation results are stored as JSON files within each year's directory:
 
 ```
-./{year}/model_comparison_results.json
+./data/{year}/model_comparison_results.json
 ```
 
 Example of results:

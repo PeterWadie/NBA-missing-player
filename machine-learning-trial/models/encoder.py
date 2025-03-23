@@ -1,7 +1,10 @@
 # models/encoder.py
+import os
 import random
+import pickle
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
+
 from utils.feature_utils import build_candidate_features
 
 
@@ -76,7 +79,7 @@ def expand_binary_data(
     return pd.DataFrame(binary_rows)
 
 
-def encode_binary_data(df_binary: pd.DataFrame) -> tuple:
+def encode_binary_data(df_binary: pd.DataFrame, output_dir: str):
     """
     Encodes player and team columns using LabelEncoder.
     Saves the encoders and the encoded DataFrame.
@@ -107,4 +110,11 @@ def encode_binary_data(df_binary: pd.DataFrame) -> tuple:
     df_binary["home_team"] = team_encoder.transform(df_binary["home_team"])
     df_binary["away_team"] = team_encoder.transform(df_binary["away_team"])
 
+    os.makedirs(output_dir, exist_ok=True)
+    with open(os.path.join(output_dir, "player_encoder.pkl"), "wb") as f:
+        pickle.dump(player_encoder, f)
+    with open(os.path.join(output_dir, "team_encoder.pkl"), "wb") as f:
+        pickle.dump(team_encoder, f)
+
+    df_binary.to_csv(os.path.join(output_dir, "encoded_binary_data.csv"), index=False)
     return df_binary, player_encoder, team_encoder
