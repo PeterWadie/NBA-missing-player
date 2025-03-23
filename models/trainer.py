@@ -1,4 +1,4 @@
-# _03_train_models.py
+# models/trainer.py
 import os
 import json
 import optuna
@@ -10,11 +10,11 @@ import catboost as cb
 import lightgbm as lgb
 import xgboost as xgb
 
-def load_data(year):
+
+def load_encoded_data(output_dir: str):
     """
-    Loads the encoded CSV data, defines feature and target columns, and returns the data along with output_dir.
+    Loads the encoded binary data and returns features and target.
     """
-    output_dir = f"./{year}"
     df_encoded = pd.read_csv(os.path.join(output_dir, "encoded_binary_data.csv"))
     feature_cols = (
         [f"home_{i}" for i in range(4)]
@@ -36,18 +36,14 @@ def load_data(year):
     label_col = "label"
     X = df_encoded[feature_cols]
     y = df_encoded[label_col]
-    return output_dir, X, y
+    return X, y
+
 
 def train_val_split(X, y, test_size=0.2, random_state=42):
-    """Splits data into training and validation sets."""
     return train_test_split(X, y, test_size=test_size, random_state=random_state)
 
+
 def get_best_params(best_params_file, objective_func, n_trials=50):
-    """
-    Checks if a best parameters file exists. If so, it loads and returns it;
-    otherwise, runs the provided objective function with Optuna to optimize hyperparameters,
-    saves the result, and returns it.
-    """
     if os.path.exists(best_params_file):
         with open(best_params_file, "r") as f:
             best_params = json.load(f)
@@ -59,11 +55,12 @@ def get_best_params(best_params_file, objective_func, n_trials=50):
             json.dump(best_params, f)
     return best_params
 
-def train_model_cb(year):
-    output_dir, X, y = load_data(year)
+
+def train_catboost(output_dir: str):
+    X, y = load_encoded_data(output_dir)
     X_train, X_valid, y_train, y_valid = train_val_split(X, y)
     best_params_file = os.path.join(output_dir, "best_cb_params.json")
-    
+
     def objective(trial):
         param = {
             "loss_function": "Logloss",
@@ -88,10 +85,10 @@ def train_model_cb(year):
         )
         preds = model.predict(X_valid)
         return accuracy_score(y_valid, preds)
-    
-    best_params = get_best_params(best_params_file, objective)
+
+    best_params = get_best_params(best_params_file, objective, n_trials=50)
     best_params.update({"loss_function": "Logloss", "eval_metric": "Accuracy"})
-    
+
     final_model = cb.CatBoostClassifier(**best_params)
     final_model.fit(
         X_train,
@@ -101,13 +98,16 @@ def train_model_cb(year):
         verbose=50,
     )
     final_model.save_model(os.path.join(output_dir, "best_cb_model.cbm"))
-    print(f"CatBoost model trained and saved at {os.path.join(output_dir, 'best_cb_model.cbm')}")
+    print(
+        f"CatBoost model trained and saved at {os.path.join(output_dir, 'best_cb_model.cbm')}"
+    )
 
-def train_model_lgb(year):
-    output_dir, X, y = load_data(year)
+
+def train_lightgbm(output_dir: str):
+    X, y = load_encoded_data(output_dir)
     X_train, X_valid, y_train, y_valid = train_val_split(X, y)
     best_params_file = os.path.join(output_dir, "best_lgb_params.json")
-    
+
     def objective(trial):
         param = {
             "objective": "binary",
@@ -137,10 +137,10 @@ def train_model_lgb(year):
         preds = model.predict(X_valid, num_iteration=model.best_iteration)
         pred_labels = (preds > 0.5).astype(int)
         return accuracy_score(y_valid, pred_labels)
-    
-    best_params = get_best_params(best_params_file, objective)
+
+    best_params = get_best_params(best_params_file, objective, n_trials=50)
     best_params.update({"objective": "binary", "metric": "binary_logloss"})
-    
+
     final_model = lgb.train(
         best_params,
         lgb.Dataset(X_train, label=y_train),
@@ -153,13 +153,16 @@ def train_model_lgb(year):
         ],
     )
     final_model.save_model(os.path.join(output_dir, "best_lgb_model.txt"))
-    print(f"LightGBM model trained and saved at {os.path.join(output_dir, 'best_lgb_model.txt')}")
+    print(
+        f"LightGBM model trained and saved at {os.path.join(output_dir, 'best_lgb_model.txt')}"
+    )
 
-def train_model_xgb(year):
-    output_dir, X, y = load_data(year)
+
+def train_xgboost(output_dir: str):
+    X, y = load_encoded_data(output_dir)
     X_train, X_valid, y_train, y_valid = train_val_split(X, y)
     best_params_file = os.path.join(output_dir, "best_xgb_params.json")
-    
+
     def objective(trial):
         param = {
             "objective": "binary:logistic",
@@ -189,10 +192,10 @@ def train_model_xgb(year):
         preds = model.predict(valid_dataset, iteration_range=(0, model.best_iteration))
         pred_labels = (preds > 0.5).astype(int)
         return accuracy_score(y_valid, pred_labels)
-    
-    best_params = get_best_params(best_params_file, objective)
+
+    best_params = get_best_params(best_params_file, objective, n_trials=50)
     best_params.update({"objective": "binary:logistic", "eval_metric": "logloss"})
-    
+
     final_model = xgb.train(
         best_params,
         xgb.DMatrix(X_train, label=y_train),
@@ -202,4 +205,15 @@ def train_model_xgb(year):
         verbose_eval=50,
     )
     final_model.save_model(os.path.join(output_dir, "best_xgb_model.json"))
-    print(f"XGBoost model trained and saved at {os.path.join(output_dir, 'best_xgb_model.json')}")
+    print(
+        f"XGBoost model trained and saved at {os.path.join(output_dir, 'best_xgb_model.json')}"
+    )
+
+
+def train_all_models(output_dir: str):
+    """
+    Trains LightGBM, XGBoost, and CatBoost models sequentially.
+    """
+    train_lightgbm(output_dir)
+    train_xgboost(output_dir)
+    train_catboost(output_dir)

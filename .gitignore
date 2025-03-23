@@ -1,4 +1,5 @@
 embeddings_cache
 venv
-trial3/catboost_info
-trial3/__pycache__
+catboost_info
+__pycache__
+data
