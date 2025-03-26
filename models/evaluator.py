@@ -2,7 +2,7 @@
 import os
 import pandas as pd
 import xgboost as xgb
-from config import OUTPUT_BASE_DIR, TEST_DATA_DIR
+from config import OUTPUT_BASE_DIR, TEST_DATA_DIR, TARGET_YEARS
 from utils.data_utils import load_json, load_encoder, load_dataframe
 from utils.feature_utils import build_candidate_features
 
@@ -17,8 +17,8 @@ def evaluate_model() -> dict:
 
     For each test sample:
       - The season (year) is identified.
-      - For seasons above 2015, the 2015 artifacts (model, encoders, players_stats, and team_rosters)
-        are used for prediction.
+      - For years in TARGET_YEARS (2008-2016), models are loaded from data/<year> directory
+        These models are trained on previous year's data. For example, the 2008 model is trained on 2007 data.
       - The four present home players are determined (ignoring the '?' among home_0 to home_4).
       - The candidate pool is built from the home team's roster (all players not in the present four).
       - For each candidate, candidate features are computed (using build_candidate_features) and a feature row is constructed.
@@ -41,20 +41,32 @@ def evaluate_model() -> dict:
 
     # Process test samples grouped by season.
     for year in test_df["season"].unique():
+        if year not in TARGET_YEARS:
+            continue
+            
         season_test_df = test_df[test_df["season"] == year].copy()
 
-        # Use 2015 data if the year is above 2015.
-        data_year = year if year <= 2015 else 2015
-
-        # Load season-specific artifacts from OUTPUT_BASE_DIR/data/<data_year>
-        output_dir = os.path.join(OUTPUT_BASE_DIR, "data", str(data_year))
+        # Use the data directory for loading models
+        target_dir = os.path.join(OUTPUT_BASE_DIR, "data", str(year))
+        
+        # If directory doesn't exist, skip this year
+        if not os.path.exists(target_dir):
+            print(f"Warning: Data directory for year {year} not found. Skipping.")
+            continue
+        
+        # Load model and encoders from the directory
         model = xgb.Booster()
-        model.load_model(os.path.join(output_dir, "best_xgb_model.json"))
+        model_path = os.path.join(target_dir, "best_xgb_model.json")
+        if not os.path.exists(model_path):
+            print(f"Warning: Model file for year {year} not found at {model_path}. Skipping.")
+            continue
+            
+        model.load_model(model_path)
 
-        player_encoder = load_encoder(output_dir, "player_encoder")
-        team_encoder = load_encoder(output_dir, "team_encoder")
-        players_stats = load_json(output_dir, "players_stats")
-        team_rosters = load_json(output_dir, "team_rosters")
+        player_encoder = load_encoder(target_dir, "player_encoder")
+        team_encoder = load_encoder(target_dir, "team_encoder")
+        players_stats = load_json(target_dir, "players_stats")
+        team_rosters = load_json(target_dir, "team_rosters")
 
         season_correct = 0
         season_incorrect = 0
@@ -117,20 +129,18 @@ def evaluate_model() -> dict:
                     + [f"away_{i}" for i in range(5)]
                 )
                 
-                # skip_candidate = False
+                # Handle players not in encoder
                 for col in player_cols:
                     if sample_df.loc[0, col] not in player_encoder.classes_:
-                        # skip_candidate = True
-                        # break
                         sample_df[col] = -1
                         continue
                     sample_df[col] = player_encoder.transform(sample_df[col])
-                
-                # if skip_candidate:
-                #     continue
 
-                # Encode team columns.
+                # Encode team columns
                 for col in ["home_team", "away_team"]:
+                    if sample_df.loc[0, col] not in team_encoder.classes_:
+                        sample_df[col] = -1
+                        continue
                     sample_df[col] = team_encoder.transform(sample_df[col])
 
                 # Reorder columns as expected by the model.
